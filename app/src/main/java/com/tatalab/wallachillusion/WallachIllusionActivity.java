@@ -17,6 +17,9 @@
 package com.tatalab.wallachillusion;
 
 import android.content.Context;
+import android.media.AudioFormat;
+import android.media.AudioManager;
+import android.media.AudioTrack;
 import android.opengl.GLES20;
 import android.opengl.Matrix;
 import android.os.Bundle;
@@ -32,6 +35,7 @@ import com.google.vr.sdk.base.HeadTransform;
 import com.google.vr.sdk.base.Viewport;
 
 import java.io.BufferedReader;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -158,10 +162,124 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
 
   private Vibrator vibrator;
 
-  private GvrAudioEngine gvrAudioEngine;
-  private volatile int soundId = GvrAudioEngine.INVALID_ID;
+  //private GvrAudioEngine gvrAudioEngine;
+  //private volatile int soundId = GvrAudioEngine.INVALID_ID;
 
   private double rotationTest = 0;
+
+
+
+  double c;
+  double dist;
+
+  int numBeamsPerHemifield;
+  int numLags;
+
+  int shiftAmount[];
+  int angle = 0;
+
+  private void initAudioParams() {
+    c = 336.628;
+    dist = 0.14;
+
+    numBeamsPerHemifield = (int) Math.ceil( (dist/c)*48000 );
+    numLags = 2*numBeamsPerHemifield +1;
+
+    //only shifts of even numbers work correctly, so numlags gets divided by two, and then the
+    //shift amount is multiplied by two.
+    numLags /= 2;
+
+
+    shiftAmount = new int[360];
+
+    for(int i=0; i<90; i++)
+      shiftAmount[i] = (int) ((i/90.0)*numLags);
+
+    for(int i=90; i<180; i++)
+      shiftAmount[i] = numLags - (int) ((i%90/90.0)*numLags);
+
+    for(int i=180; i<270; i++)
+      shiftAmount[i] = (int) ((i%90/90.0)*numLags);
+
+    for(int i=270; i<360; i++)
+      shiftAmount[i] = numLags - (int) ((i%90/90.0)*numLags);
+  }
+
+  public void playWav(){
+
+    while(true) {
+
+
+      int minBufferSize = AudioTrack.getMinBufferSize(48000, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT);
+      int bufferSize = 512;
+      AudioTrack at = new AudioTrack(AudioManager.STREAM_MUSIC, 48000, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT, minBufferSize, AudioTrack.MODE_STREAM);
+
+
+      int i, j, k;
+
+      byte[] s0 = new byte[bufferSize];
+      byte[] s1 = new byte[bufferSize];
+      byte[] s2 = new byte[bufferSize];
+      try {
+        InputStream is = getAssets().open("cube_sound.wav");
+
+        i = is.read(s0, 0, bufferSize);
+        j = is.read(s1, 0, bufferSize);
+
+
+        at.play();
+
+
+        while ((k = is.read(s2, 0, bufferSize)) > -1) {
+
+          int shift = shiftAmount[angle];
+          byte[] ster = new byte[bufferSize * 2];
+
+          //shift amount is only for right ear, so if the angle is > 180 this means the right ear
+          //is farther away from the sound source, so the shift offset is negative.
+          if(angle > 180)
+            shift *= -1;
+
+          //static happens when the shift amount is odd, so numLags is divided by two, and then
+          // shift gets multiplied by two so the shift amount is always even
+          shift *= 2;
+
+          //Log.i(TAG,"The shift: " + shift);
+
+
+          byte[] concat = new byte[bufferSize*3];
+
+          System.arraycopy(s0, 0, concat, 0, s0.length);
+          System.arraycopy(s1, 0, concat, s0.length, s1.length);
+          System.arraycopy(s2, 0, concat, s0.length+s1.length, s2.length);
+
+          for (int l = 0; l < bufferSize; l += 2) {
+            ster[l * 2 + 0] = concat[bufferSize+l];
+            ster[l * 2 + 1] = concat[bufferSize+l+1];
+            ster[l * 2 + 2] = concat[bufferSize+l+shift];
+            ster[l * 2 + 3] = concat[bufferSize+l+shift+1];
+          }
+
+          at.write(ster, 0, bufferSize*2);
+
+          System.arraycopy(s1, 0, s0, 0, s1.length);
+          System.arraycopy(s2, 0, s1, 0, s2.length);
+
+        }
+        at.stop();
+        at.release();
+        is.close();
+        is.close();
+
+      } catch (FileNotFoundException e) {
+        // TODO
+        e.printStackTrace();
+      } catch (IOException e) {
+        // TODO
+        e.printStackTrace();
+      }
+    }
+  }
 
   /**
    * Converts a raw text file, saved as a resource, into an OpenGL ES shader.
@@ -238,7 +356,7 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
     vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
 
     // Initialize 3D audio engine.
-    gvrAudioEngine = new GvrAudioEngine(this, GvrAudioEngine.RenderingMode.STEREO_PANNING);
+    //gvrAudioEngine = new GvrAudioEngine(this, GvrAudioEngine.RenderingMode.STEREO_PANNING);
   }
 
   public void initializeGvrView() {
@@ -269,14 +387,14 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
 
   @Override
   public void onPause() {
-    gvrAudioEngine.pause();
+    //gvrAudioEngine.pause();
     super.onPause();
   }
 
   @Override
   public void onResume() {
     super.onResume();
-    gvrAudioEngine.resume();
+    //gvrAudioEngine.resume();
   }
 
   @Override
@@ -453,7 +571,9 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
     Matrix.setIdentityM(modelFloor, 0);
     Matrix.translateM(modelFloor, 0, 0, -floorDepth, 0); // Floor appears below user.
 
+    initAudioParams();
     // Avoid any delays during start-up due to decoding of sound files.
+
     new Thread(
             new Runnable() {
               @Override
@@ -461,11 +581,16 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
                 // Start spatial audio playback of SOUND_FILE at the model postion. The returned
                 //soundId handle is stored and allows for repositioning the sound object whenever
                 // the cube position changes.
-                gvrAudioEngine.preloadSoundFile(SOUND_FILE);
-                soundId = gvrAudioEngine.createSoundObject(SOUND_FILE);
-                gvrAudioEngine.setSoundObjectPosition(
-                    soundId, moving2xPosition[0], moving2xPosition[1], moving2xPosition[2]);
-                gvrAudioEngine.playSound(soundId, true /* looped playback */);
+//                gvrAudioEngine.preloadSoundFile(SOUND_FILE);
+//                soundId = gvrAudioEngine.createSoundObject(SOUND_FILE);
+//                gvrAudioEngine.setSoundObjectPosition(
+//                    soundId, moving2xPosition[0], moving2xPosition[1], moving2xPosition[2]);
+//                gvrAudioEngine.playSound(soundId, true /* looped playback */);
+                try {
+                  playWav();
+                } catch (Throwable t) {
+                  t.printStackTrace();
+                }
               }
             })
         .start();
@@ -488,11 +613,11 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
     Matrix.setIdentityM(staticCube, 0);
     Matrix.translateM(staticCube, 0, staticPosition[0], staticPosition[1], staticPosition[2]);
 
-    // Update the sound location to match it with the new cube position.
-    if (soundId != GvrAudioEngine.INVALID_ID) {
-      gvrAudioEngine.setSoundObjectPosition(
-          soundId, moving2xPosition[0], moving2xPosition[1], moving2xPosition[2]);
-    }
+//    // Update the sound location to match it with the new cube position.
+//    if (soundId != GvrAudioEngine.INVALID_ID) {
+//      gvrAudioEngine.setSoundObjectPosition(
+//          soundId, moving2xPosition[0], moving2xPosition[1], moving2xPosition[2]);
+//    }
     checkGLError("updateCubePosition");
   }
 
@@ -539,6 +664,7 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
     double deltaAngle2X = (Math.atan2(forwardVector[0], forwardVector[2])
             - Math.atan2(prevForwardVector[0], prevForwardVector[2]))*2.0;
 
+    //angle offset
     double deltaAngle = -0.25;
 
 
@@ -560,16 +686,24 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
   moving2xPosition[0] = (float) rot2XY;
   updateModelPosition();
 
+    double objectDeltaAngle = (Math.atan2(forwardVector[0], forwardVector[2])
+            - Math.atan2(moving2xPosition[0], moving2xPosition[2])+2*Math.PI)*360/(2*Math.PI);
+
+
+
+    angle = (int) objectDeltaAngle%360;
+
+    Log.i(TAG,"The angle: " + objectDeltaAngle);
 
     //Log.i("forwardVector", forwardVector[0] + ", " + forwardVector[1] + ", " + forwardVector[2]);
     //Log.i("modelPos", moving2xPosition[0] + ", " + moving2xPosition[1] + ", " + moving2xPosition[2]);
 
     // Update the 3d audio engine with the most recent head rotation.
     headTransform.getQuaternion(headRotation, 0);
-    gvrAudioEngine.setHeadRotation(
-        headRotation[0], headRotation[1], headRotation[2], headRotation[3]);
+    //gvrAudioEngine.setHeadRotation(
+    //    headRotation[0], headRotation[1], headRotation[2], headRotation[3]);
     // Regular update call to GVR audio engine.
-    gvrAudioEngine.update();
+    //gvrAudioEngine.update();
 
     checkGLError("onReadyToDraw");
   }
@@ -577,6 +711,7 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
   protected void setCubeRotation() {
     Matrix.rotateM(moving2xCube, 0, TIME_DELTA, 0.5f, 0.5f, 1.0f);
     Matrix.rotateM(movingCube, 0, TIME_DELTA, 0.5f, 0.5f, 1.0f);
+    Matrix.rotateM(staticCube, 0, TIME_DELTA, 0.5f, 0.5f, 1.0f);
   }
 
   /**
@@ -615,12 +750,12 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
     // for calculating cube position and light.
     float[] staticPerspective = eye.getPerspective(Z_NEAR, Z_FAR);
     Matrix.multiplyMM(modelView, 0, view, 0, staticCube, 0);
-    Matrix.multiplyMM(modelViewProjection, 0, movingPerspective, 0, modelView, 0);
+    Matrix.multiplyMM(modelViewProjection, 0, staticPerspective, 0, modelView, 0);
     drawStaticCube();
 
     // Set modelView for the floor, so we draw floor in the correct location
     Matrix.multiplyMM(modelView, 0, view, 0, modelFloor, 0);
-    Matrix.multiplyMM(modelViewProjection, 0, movingPerspective, 0, modelView, 0);
+    Matrix.multiplyMM(modelViewProjection, 0, staticPerspective, 0, modelView, 0);
     drawFloor();
   }
 
