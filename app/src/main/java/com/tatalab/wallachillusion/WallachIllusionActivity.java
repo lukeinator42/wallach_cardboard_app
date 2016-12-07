@@ -693,10 +693,7 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
 
     angle = (int) objectDeltaAngle%360;
 
-    Log.i(TAG,"The angle: " + objectDeltaAngle);
-
-    //Log.i("forwardVector", forwardVector[0] + ", " + forwardVector[1] + ", " + forwardVector[2]);
-    //Log.i("modelPos", moving2xPosition[0] + ", " + moving2xPosition[1] + ", " + moving2xPosition[2]);
+    //Log.i(TAG,"The angle: " + objectDeltaAngle);
 
     // Update the 3d audio engine with the most recent head rotation.
     headTransform.getQuaternion(headRotation, 0);
