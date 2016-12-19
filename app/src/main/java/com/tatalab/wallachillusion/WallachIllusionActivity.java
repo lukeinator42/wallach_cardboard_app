@@ -17,15 +17,18 @@
 package com.tatalab.wallachillusion;
 
 import android.content.Context;
+import android.content.res.AssetFileDescriptor;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
+import android.media.MediaPlayer;
 import android.opengl.GLES20;
 import android.opengl.Matrix;
 import android.os.Bundle;
 import android.os.Vibrator;
 import android.util.Log;
 
+import com.google.vr.cardboard.ThreadUtils;
 import com.google.vr.sdk.audio.GvrAudioEngine;
 import com.google.vr.sdk.base.AndroidCompat;
 import com.google.vr.sdk.base.Eye;
@@ -42,6 +45,9 @@ import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 import javax.microedition.khronos.egl.EGLConfig;
 
@@ -172,7 +178,7 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
   private int frameCount = 1;
   boolean menuState = false;
   private int[] menuCounts = new int[] {0, 0, 0};
-
+  private AudioTrack at;
 
   double c;
   double dist;
@@ -213,11 +219,12 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
   public void playWav(){
 
     while(true) {
-
+      if(menuState)
+        continue;
 
       int minBufferSize = AudioTrack.getMinBufferSize(48000, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT);
       int bufferSize = 512;
-      AudioTrack at = new AudioTrack(AudioManager.STREAM_MUSIC, 48000, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT, minBufferSize, AudioTrack.MODE_STREAM);
+      at = new AudioTrack(AudioManager.STREAM_MUSIC, 48000, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT, minBufferSize, AudioTrack.MODE_STREAM);
 
 
       int i, j, k;
@@ -232,7 +239,7 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
         j = is.read(s1, 0, bufferSize);
 
 
-        at.play();
+          at.play();
 
 
         while ((k = is.read(s2, 0, bufferSize)) > -1) {
@@ -677,7 +684,7 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
 
     frameCount++;
 
-    if(frameCount%300==0) {
+    if(frameCount%300==0 && !menuState) {
       menuState = true;
       initMenu();
     }
@@ -783,10 +790,18 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
   }
 
   private void initMenu() {
+    at.pause();
+
+    startSound("menu.mp3");
+
     setCubeRotation();
 
     //angle offset
-    double deltaAngles[] = new double[] {-0.75, 0, 0.75};
+    Double deltaAngles[] = new Double[] {-0.75, 0.0, 0.75};
+
+    List<Double> angleList = Arrays.asList(deltaAngles);
+
+    Collections.shuffle(angleList);
 
     double xAngles[] = new double[3];
     double yAngles[] = new double[3];
@@ -812,6 +827,18 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
     updateModelPosition();
   }
 
+  private void startSound (String filename){
+    try {
+      AssetFileDescriptor afd = getAssets().openFd(filename);
+      MediaPlayer player = new MediaPlayer();
+      player.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
+      player.prepare();
+      player.start();
+    } catch (Throwable t) {
+      t.printStackTrace();
+    }
+  }
+
   private void checkMenu() {
     setCubeRotation();
     updateModelPosition();
@@ -829,6 +856,8 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
         System.out.println("menu-selection, " + i);
         menuState=false;
         frameCount=0;
+
+        at.play();
       }
     }
 
