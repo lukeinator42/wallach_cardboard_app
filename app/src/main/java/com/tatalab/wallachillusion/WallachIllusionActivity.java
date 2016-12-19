@@ -72,8 +72,8 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
   private static final float CAMERA_Z = 0.01f;
   private static final float TIME_DELTA = 0.3f;
 
-  private static final float YAW_LIMIT = 0.12f;
-  private static final float PITCH_LIMIT = 0.12f;
+  private static final float YAW_LIMIT = 0.2f;
+  private static final float PITCH_LIMIT = 0.4f;
 
   private static final int COORDS_PER_VERTEX = 3;
 
@@ -105,6 +105,8 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
   private FloatBuffer staticVertices;
   private FloatBuffer staticColors;
   private FloatBuffer staticNormals;
+
+  private FloatBuffer cubeFoundColors;
 
   private int moving2xProgram;
   private int cubeProgram;
@@ -167,6 +169,9 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
 
   private double rotationTest = 0;
 
+  private int frameCount = 1;
+  boolean menuState = false;
+  private int[] menuCounts = new int[] {0, 0, 0};
 
 
   double c;
@@ -475,6 +480,14 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
     staticNormals.put(WorldLayoutData.CUBE_NORMALS);
     staticNormals.position(0);
 
+    ByteBuffer bbCubeFoundColors = ByteBuffer.allocateDirect(WorldLayoutData.CUBE_FOUND_COLORS.length * 4);
+    bbCubeFoundColors.order(ByteOrder.nativeOrder());
+    cubeFoundColors = bbCubeFoundColors.asFloatBuffer();
+    cubeFoundColors.put(WorldLayoutData.CUBE_FOUND_COLORS);
+    cubeFoundColors.position(0);
+
+
+
     // make a floor
     ByteBuffer bbFloorVertices = ByteBuffer.allocateDirect(WorldLayoutData.FLOOR_COORDS.length * 4);
     bbFloorVertices.order(ByteOrder.nativeOrder());
@@ -651,6 +664,7 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
    */
   @Override
   public void onNewFrame(HeadTransform headTransform) {
+
     setCubeRotation();
 
     // Build the camera matrix and apply it to the ModelView.
@@ -660,6 +674,18 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
 
     System.arraycopy(forwardVector, 0, prevForwardVector, 0, 3);
     headTransform.getForwardVector(forwardVector, 0);
+
+    frameCount++;
+
+    if(frameCount%300==0) {
+      menuState = true;
+      initMenu();
+    }
+
+    if(menuState) {
+      checkMenu();
+      return;
+    }
 
     double deltaAngle2X = (Math.atan2(forwardVector[0], forwardVector[2])
             - Math.atan2(prevForwardVector[0], prevForwardVector[2]))*2.0;
@@ -693,8 +719,8 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
 
     angle = (int) objectDeltaAngle%360;
 
-    //Log.i(TAG,"The angle: " + objectDeltaAngle);
-
+    //Log.i(TAG,"The angle: " + angle);
+    //System.out.println("The angle: " + angle);
     // Update the 3d audio engine with the most recent head rotation.
     headTransform.getQuaternion(headRotation, 0);
     //gvrAudioEngine.setHeadRotation(
@@ -756,6 +782,65 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
     drawFloor();
   }
 
+  private void initMenu() {
+    setCubeRotation();
+
+    //angle offset
+    double deltaAngles[] = new double[] {-0.75, 0, 0.75};
+
+    double xAngles[] = new double[3];
+    double yAngles[] = new double[3];
+
+    for(int i=0; i<3; i++) {
+      xAngles[i] = forwardVector[2]*Math.cos(deltaAngles[i])
+              - forwardVector[0]*Math.sin(deltaAngles[i]);
+
+      yAngles[i] = forwardVector[2]*Math.sin(deltaAngles[i])
+              + forwardVector[0]*Math.cos(deltaAngles[i]);
+    }
+
+
+    staticPosition[2] = (float) xAngles[0]*MAX_MODEL_DISTANCE;
+    staticPosition[0] = (float) yAngles[0]*MAX_MODEL_DISTANCE;
+
+    movingPosition[2] = (float) xAngles[1]*MAX_MODEL_DISTANCE;
+    movingPosition[0] = (float) yAngles[1]*MAX_MODEL_DISTANCE;
+
+    moving2xPosition[2] = (float) xAngles[2]*MAX_MODEL_DISTANCE;
+    moving2xPosition[0] = (float) yAngles[2]*MAX_MODEL_DISTANCE;
+
+    updateModelPosition();
+  }
+
+  private void checkMenu() {
+    setCubeRotation();
+    updateModelPosition();
+
+    checkObject(staticCube, 0);
+    checkObject(movingCube, 1);
+    checkObject(moving2xCube, 2);
+
+    for(int i=0; i<3; i++) {
+      if(menuCounts[i]>=90) {
+
+        for(int j=0; j<3; j++)
+          menuCounts[j] = 0;
+
+        System.out.println("menu-selection, " + i);
+        menuState=false;
+        frameCount=0;
+      }
+    }
+
+  }
+
+  private void checkObject(float[] object, int i) {
+    if(isLookingAtObject(object))
+      menuCounts[i]++;
+    else
+      menuCounts[i] = 0;
+  }
+
   @Override
   public void onFinishFrame(Viewport viewport) {}
 
@@ -784,7 +869,8 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
 
     // Set the normal positions of the cube, again for shading
     GLES20.glVertexAttribPointer(moving2xNormalParam, 3, GLES20.GL_FLOAT, false, 0, moving2xNormals);
-    GLES20.glVertexAttribPointer(moving2xColorParam, 4, GLES20.GL_FLOAT, false, 0, moving2xColors);
+    GLES20.glVertexAttribPointer(moving2xColorParam, 4, GLES20.GL_FLOAT, false, 0,
+            isLookingAtObject(moving2xCube) ? cubeFoundColors : moving2xColors);
 
     // Enable vertex arrays
     GLES20.glEnableVertexAttribArray(moving2xPositionParam);
@@ -815,7 +901,8 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
 
     // Set the normal positions of the cube, again for shading
     GLES20.glVertexAttribPointer(cubeNormalParam, 3, GLES20.GL_FLOAT, false, 0, cubeNormals);
-    GLES20.glVertexAttribPointer(cubeColorParam, 4, GLES20.GL_FLOAT, false, 0, cubeColors);
+    GLES20.glVertexAttribPointer(cubeColorParam, 4, GLES20.GL_FLOAT, false, 0,
+            isLookingAtObject(movingCube) ? cubeFoundColors : cubeColors);
 
     // Enable vertex arrays
     GLES20.glEnableVertexAttribArray(cubePositionParam);
@@ -846,7 +933,8 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
 
     // Set the normal positions of the cube, again for shading
     GLES20.glVertexAttribPointer(staticNormalParam, 3, GLES20.GL_FLOAT, false, 0, staticNormals);
-    GLES20.glVertexAttribPointer(staticColorParam, 4, GLES20.GL_FLOAT, false, 0, staticColors);
+    GLES20.glVertexAttribPointer(staticColorParam, 4, GLES20.GL_FLOAT, false, 0,
+            isLookingAtObject(staticCube) ? cubeFoundColors : staticColors);
 
     // Enable vertex arrays
     GLES20.glEnableVertexAttribArray(staticPositionParam);
@@ -886,22 +974,6 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
     checkGLError("drawing floor");
   }
 
-  /**
-   * Called when the Cardboard trigger is pulled.
-   */
-  @Override
-  public void onCardboardTrigger() {
-    Log.i(TAG, "onCardboardTrigger");
-
-    if (isLookingAtObject()) {
-      hideObject();
-    }
-
-    rotationMode = 1 - rotationMode;
-
-    // Always give user feedback.
-    vibrator.vibrate(50);
-  }
 
   /**
    * Find a new random position for the object.
@@ -939,14 +1011,14 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
    *
    * @return true if the user is looking at the object.
    */
-  private boolean isLookingAtObject() {
+  private boolean isLookingAtObject(float[] cube) {
     // Convert object space to camera space. Use the headView from onNewFrame.
-    Matrix.multiplyMM(modelView, 0, headView, 0, moving2xCube, 0);
+    Matrix.multiplyMM(modelView, 0, headView, 0, cube, 0);
     Matrix.multiplyMV(tempPosition, 0, modelView, 0, POS_MATRIX_MULTIPLY_VEC, 0);
 
     float pitch = (float) Math.atan2(tempPosition[1], -tempPosition[2]);
     float yaw = (float) Math.atan2(tempPosition[0], -tempPosition[2]);
 
-    return Math.abs(pitch) < PITCH_LIMIT && Math.abs(yaw) < YAW_LIMIT;
+    return (Math.abs(pitch) < PITCH_LIMIT && Math.abs(yaw) < YAW_LIMIT) && menuState;
   }
 }
