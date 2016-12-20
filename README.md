@@ -2,6 +2,10 @@
 
 This repository contains a Google Cardboard App for testing the Wallach Auditory Illusion. 
 
+## What is the Wallach Illusion?
+
+The Wallach Illusion is an Auditory Illusion discovered by Hans Wallach in [1940](http://psycnet.apa.org/journals/xge/27/4/339/). It occurs when a sound source orbits a listeners head at twice the speed the listener is turning their head. Due to front/back confusion, the sound appears to be coming from a stationary source. Using recent advances in VR Technology, we have implemented an android app for use with [Google Cardboard](https://vr.google.com/cardboard/), that demonstrates this illusion. 
+
 ## Where Can I Get this App?
 
 The first and easiest option is to download the app from the Google Play Store, [here](https://play.google.com/store/apps/details?id=com.tatalab.wallachillusion). 
@@ -18,7 +22,7 @@ The user wears a pair of headphones that are plugged into an android phone runni
 
 ![Screenshot](images/two-cubes.png)
 
-Each trial lasts 20 seconds. The user is then presented with the three cubes in a random order, and selects which cube the sound appeared to becoming from. Selections are made by looking at the cube to be selected for 1.5 seconds. The cube is highlighted in yellow when the user is looking at it, as shown below: 
+Each trial lasts 20 seconds. The user is then presented with the three cubes in a random order, and selects the cube that appeared to produce the sound. Selections are made by looking at the cube to be selected for 1.5 seconds. The cube is highlighted in yellow when the user is looking at it, as shown below: 
 
 ![Screenshot](images/menu-selection.png)
 
@@ -56,3 +60,10 @@ or the menu selections the user makes
 ```
 adb logcat System.out:I *:S | grep menu-selection > menu-selection.txt
 ```
+
+## References
+
+Wallach, Hans. "The role of head movements and vestibular and visual cues in sound localization." Journal of Experimental Psychology 27.4 (1940): 339.
+
+Brimijoin, W. Owen, and Michael A. Akeroyd. "The role of head movements and signal spectrum in an auditory front/back illusion." i-Perception 3.3 (2012): 179-182.
+
