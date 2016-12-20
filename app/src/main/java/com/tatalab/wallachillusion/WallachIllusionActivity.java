@@ -163,6 +163,8 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
   private float[] forwardVector;
   private float[] prevForwardVector;
 
+  private float prevObjectLocations[] = new float[] {0, 0, 0, 0, 0, 0};
+
   private int rotationMode = 0;
 
   private float objectDistance = MAX_MODEL_DISTANCE / 2.0f;
@@ -170,16 +172,19 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
 
   private Vibrator vibrator;
 
-  //private GvrAudioEngine gvrAudioEngine;
-  //private volatile int soundId = GvrAudioEngine.INVALID_ID;
-
-  private double rotationTest = 0;
-
+  //how many frames have passed
   private int frameCount = 1;
+
+  //whether selection menu is showing or not
   boolean menuState = false;
+
+  //how many frames user has been continually looking at one of the options
   private int[] menuCounts = new int[] {0, 0, 0};
+
+  //the audiotrack for itd
   private AudioTrack at;
 
+  //speed of sound and dist between ears
   double c;
   double dist;
 
@@ -189,6 +194,10 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
   int shiftAmount[];
   int angle = 0;
 
+
+  //This function initializes the array of angles to shift audio frames for ITD
+  //
+  //
   private void initAudioParams() {
     c = 336.628;
     dist = 0.14;
@@ -216,6 +225,8 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
       shiftAmount[i] = numLags - (int) ((i%90/90.0)*numLags);
   }
 
+
+  //this function plays audio if the app isn't in a menu state
   public void playWav(){
 
     while(true) {
@@ -684,7 +695,7 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
 
     frameCount++;
 
-    if(frameCount%300==0 && !menuState) {
+    if(frameCount%1200==0 && !menuState) {
       menuState = true;
       initMenu();
     }
@@ -694,46 +705,47 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
       return;
     }
 
+
+    //angle of cube rotating twice as fast as users head
     double deltaAngle2X = (Math.atan2(forwardVector[0], forwardVector[2])
             - Math.atan2(prevForwardVector[0], prevForwardVector[2]))*2.0;
 
-    //angle offset
+    //angle offset for static cube
     double deltaAngle = -0.25;
 
 
-    //System.out.println("[" + forwardVector[2] + ", " + forwardVector[0] + ", " + forwardVector[1]
-    //        + "], [" + moving2xPosition[2] + ", " + moving2xPosition[0] + ", " + moving2xPosition[1] + "]");
+    System.out.println("head-position: [" + forwardVector[2] + ", " + forwardVector[0] + ", " + forwardVector[1]
+            + "], object-position: [" + moving2xPosition[2] + ", " + moving2xPosition[0] + ", " + moving2xPosition[1] + "]");
 
 
 
+  //direction vector for cube moving with head
   double rotX = forwardVector[2]*Math.cos(deltaAngle) - forwardVector[0]*Math.sin(deltaAngle);
   double rotY = forwardVector[2]*Math.sin(deltaAngle) + forwardVector[0]*Math.cos(deltaAngle);
 
+  //direction vector for cube moving twice as fast as head
   double rot2XX = moving2xPosition[2]*Math.cos(deltaAngle2X) - moving2xPosition[0]*Math.sin(deltaAngle2X);
   double rot2XY = moving2xPosition[2]*Math.sin(deltaAngle2X) + moving2xPosition[0]*Math.cos(deltaAngle2X);
 
+  //update cube moving with head
   movingPosition[2] = (float) rotX*MAX_MODEL_DISTANCE;
   movingPosition[0] = (float) rotY*MAX_MODEL_DISTANCE;
 
+  //update cube moving twice as fast
   moving2xPosition[2] = (float) rot2XX;
   moving2xPosition[0] = (float) rot2XY;
   updateModelPosition();
 
+    //angle for audio
     double objectDeltaAngle = (Math.atan2(forwardVector[0], forwardVector[2])
             - Math.atan2(moving2xPosition[0], moving2xPosition[2])+2*Math.PI)*360/(2*Math.PI);
 
 
-
+  //angle for audio in degrees as int
     angle = (int) objectDeltaAngle%360;
 
-    //Log.i(TAG,"The angle: " + angle);
-    //System.out.println("The angle: " + angle);
-    // Update the 3d audio engine with the most recent head rotation.
     headTransform.getQuaternion(headRotation, 0);
-    //gvrAudioEngine.setHeadRotation(
-    //    headRotation[0], headRotation[1], headRotation[2], headRotation[3]);
-    // Regular update call to GVR audio engine.
-    //gvrAudioEngine.update();
+
 
     checkGLError("onReadyToDraw");
   }
@@ -789,10 +801,13 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
     drawFloor();
   }
 
+  //shows cubes side by side in random order. plays instruction audio
   private void initMenu() {
     at.pause();
 
     startSound("menu.mp3");
+
+    savePositions();
 
     setCubeRotation();
 
@@ -827,6 +842,7 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
     updateModelPosition();
   }
 
+
   private void startSound (String filename){
     try {
       AssetFileDescriptor afd = getAssets().openFd(filename);
@@ -857,6 +873,10 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
         menuState=false;
         frameCount=0;
 
+        restorePositions();
+        setCubeRotation();
+        updateModelPosition();
+
         at.play();
       }
     }
@@ -868,6 +888,24 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
       menuCounts[i]++;
     else
       menuCounts[i] = 0;
+  }
+
+  private void savePositions() {
+    prevObjectLocations[0] = staticPosition[2];
+    prevObjectLocations[1] = staticPosition[0];
+    prevObjectLocations[2] = movingPosition[2];
+    prevObjectLocations[3] = movingPosition[0];
+    prevObjectLocations[4] = moving2xPosition[2];
+    prevObjectLocations[5] = moving2xPosition[0];
+  }
+
+  private void restorePositions() {
+    staticPosition[2] = prevObjectLocations[0];
+    staticPosition[0] = prevObjectLocations[1];
+    movingPosition[2] = prevObjectLocations[2];
+    movingPosition[0] = prevObjectLocations[3];
+    moving2xPosition[2] = prevObjectLocations[4];
+    moving2xPosition[0] = prevObjectLocations[5];
   }
 
   @Override
