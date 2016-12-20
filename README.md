@@ -27,22 +27,22 @@ Each trial lasts 20 seconds. The user is then presented with the three cubes in 
 
 To collect data from the app wirelessly, first make sure you have the android developer tools installed. Then, make sure USB debugging is enabled on the phone, and connect it to the computer with a USB cable. In a terminal, type 
 
-'''
+```
 adb devices
-'''
+```
 and make sure the device is shown. Then type
 
-'''
+```
 adb tcpip 5555
-'''
+```
 to enable wireless debugging on the device. Now you can disconnect the usb cable. Then, to log data from the device, use adb logcat. For example, you can log the users head movements to a file by running
 
-'''
+```
 adb logcat System.out:I *:S | grep head-position > head-position.txt
-'''
+```
 
 or the menu selections the user makes
 
-'''
+```
 adb logcat System.out:I *:S | grep menu-selection > menu-selection.txt
-'''
+```
