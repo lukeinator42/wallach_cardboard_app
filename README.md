@@ -30,12 +30,22 @@ To collect data from the app wirelessly, first make sure you have the android de
 ```
 adb devices
 ```
-and make sure the device is shown. Then type
+and make sure the device is shown:
+![Screenshot](images/connect-a.png)
+Then type
 
 ```
 adb tcpip 5555
 ```
-to enable wireless debugging on the device. Now you can disconnect the usb cable. Then, to log data from the device, use adb logcat. For example, you can log the users head movements to a file by running
+to enable wireless debugging on the device. Now type:
+
+```
+adb connect <device-ip>:5555
+```
+to connect wirelessly. Now you can disconnect the usb cable. eg:
+![Screenshot](images/connect-b.png)
+
+Then, to log data from the device, use adb logcat. For example, you can log the users head movements to a file by running
 
 ```
 adb logcat System.out:I *:S | grep head-position > head-position.txt
