@@ -61,6 +61,9 @@ or the menu selections the user makes
 adb logcat System.out:I *:S | grep menu-selection > menu-selection.txt
 ```
 
+## Thanks
+Special thanks to Dr. Matthew Tata and Scott Stone for helping me with this project.
+
 ## References
 
 Wallach, Hans. "The role of head movements and vestibular and visual cues in sound localization." Journal of Experimental Psychology 27.4 (1940): 339.
