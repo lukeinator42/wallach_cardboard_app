@@ -45,6 +45,7 @@ import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -194,6 +195,17 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
   int shiftAmount[];
   int angle = 0;
 
+  List<String> fileNames;
+  List<Integer> isRotating;
+  int trialPos;
+  int numTrials;
+
+  double timeElapsed;
+
+  double timePlaying;
+  double millisPlaying = 100;
+  boolean rotatePlaying = true;
+
 
   //This function initializes the array of angles to shift audio frames for ITD
   //
@@ -223,6 +235,30 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
 
     for(int i=270; i<360; i++)
       shiftAmount[i] = numLags - (int) ((i%90/90.0)*numLags);
+
+    fileNames = new ArrayList<>();
+    isRotating = new ArrayList<>();
+
+    trialPos = 0;
+    numTrials = 60;
+
+    for(int i=0; i<30; i++)
+      isRotating.add(0);
+
+    for(int i=30; i<60; i++)
+      isRotating.add(1);
+
+    for(int i=0; i<20; i++)
+      fileNames.add("low.wav");
+
+    for(int i=20; i<40; i++)
+      fileNames.add("highAndLow.wav");
+
+    for(int i=40; i<60; i++)
+      fileNames.add("high.wav");
+
+    Collections.shuffle(fileNames);
+    Collections.shuffle(isRotating);
   }
 
 
@@ -233,8 +269,11 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
       if(menuState)
         continue;
 
+
+
+
       int minBufferSize = AudioTrack.getMinBufferSize(48000, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT);
-      int bufferSize = 512;
+      int bufferSize = 2048;
       at = new AudioTrack(AudioManager.STREAM_MUSIC, 48000, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT, minBufferSize, AudioTrack.MODE_STREAM);
 
 
@@ -244,7 +283,7 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
       byte[] s1 = new byte[bufferSize];
       byte[] s2 = new byte[bufferSize];
       try {
-        InputStream is = getAssets().open("cube_sound.wav");
+        InputStream is = getAssets().open(fileNames.get(trialPos));
 
         i = is.read(s0, 0, bufferSize);
         j = is.read(s1, 0, bufferSize);
@@ -283,7 +322,10 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
             ster[l * 2 + 3] = concat[bufferSize+l+shift+1];
           }
 
-          at.write(ster, 0, bufferSize*2);
+          if(rotatePlaying)
+            at.write(ster, 0, bufferSize*2);
+          else
+            at.write(new byte[bufferSize*2], 0, bufferSize*2);
 
           System.arraycopy(s1, 0, s0, 0, s1.length);
           System.arraycopy(s2, 0, s1, 0, s2.length);
@@ -629,6 +671,8 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
     updateModelPosition();
 
     checkGLError("onSurfaceCreated");
+    timeElapsed = System.currentTimeMillis();
+    timePlaying = System.currentTimeMillis();
   }
 
   /**
@@ -693,9 +737,9 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
     System.arraycopy(forwardVector, 0, prevForwardVector, 0, 3);
     headTransform.getForwardVector(forwardVector, 0);
 
-    frameCount++;
 
-    if(frameCount%1200==0 && !menuState) {
+
+    if(System.currentTimeMillis() - timeElapsed > 15000 && !menuState) {
       menuState = true;
       initMenu();
     }
@@ -705,10 +749,23 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
       return;
     }
 
+    if(System.currentTimeMillis() - timePlaying <= millisPlaying)
+      rotatePlaying = true;
+     else if(System.currentTimeMillis() - timePlaying <= 1000)
+      rotatePlaying = false;
+     else
+      timePlaying = System.currentTimeMillis();
 
+
+
+
+    double headAngle = (Math.atan2(forwardVector[0], forwardVector[2])
+            - Math.atan2(prevForwardVector[0], prevForwardVector[2]));
     //angle of cube rotating twice as fast as users head
-    double deltaAngle2X = (Math.atan2(forwardVector[0], forwardVector[2])
-            - Math.atan2(prevForwardVector[0], prevForwardVector[2]))*2.0;
+    double deltaAngle2X = headAngle*2.0;
+
+    System.out.println("head-angle: " + headAngle);
+
 
     //angle offset for static cube
     double deltaAngle = -0.25;
@@ -737,12 +794,20 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
   updateModelPosition();
 
     //angle for audio
-    double objectDeltaAngle = (Math.atan2(forwardVector[0], forwardVector[2])
-            - Math.atan2(moving2xPosition[0], moving2xPosition[2])+2*Math.PI)*360/(2*Math.PI);
+    double objectDeltaAngle;
 
+    if(isRotating.get(trialPos) == 1) {
+      objectDeltaAngle = (Math.atan2(forwardVector[0], forwardVector[2])
+              - Math.atan2(moving2xPosition[0], moving2xPosition[2]) + 2 * Math.PI) * 360 / (2 * Math.PI);
+      //System.out.println("works");
+    } else {
+      objectDeltaAngle = (Math.atan2(forwardVector[0], forwardVector[2])
+              - Math.atan2(movingPosition[0], movingPosition[2]) + 2 * Math.PI) * 360 / (2 * Math.PI);
+    }
 
   //angle for audio in degrees as int
-    angle = (int) objectDeltaAngle%360;
+    if(!rotatePlaying)
+      angle = (int) objectDeltaAngle%360;
 
     headTransform.getQuaternion(headRotation, 0);
 
@@ -803,7 +868,7 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
 
   //shows cubes side by side in random order. plays instruction audio
   private void initMenu() {
-    at.pause();
+    //at.pause();
 
     startSound("menu.mp3");
 
@@ -840,6 +905,8 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
     moving2xPosition[0] = (float) yAngles[2]*MAX_MODEL_DISTANCE;
 
     updateModelPosition();
+
+
   }
 
 
@@ -864,18 +931,32 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
     checkObject(moving2xCube, 2);
 
     for(int i=0; i<3; i++) {
-      if(menuCounts[i]>=90) {
+      if(menuCounts[i]>=180) {
 
         for(int j=0; j<3; j++)
           menuCounts[j] = 0;
 
-        System.out.println("menu-selection, " + i);
+        System.out.println("trial: " + trialPos +
+                ", menu-selection: " + i +
+                ", rotating-2x: " + isRotating.get(trialPos) +
+                ", file-name: " + fileNames.get(trialPos) );
+
+
+
+        if(trialPos<60)
+          trialPos++;
+        else
+        return;
+
         menuState=false;
+
         frameCount=0;
 
         restorePositions();
         setCubeRotation();
         updateModelPosition();
+
+        timeElapsed = System.currentTimeMillis();
 
         at.play();
       }
