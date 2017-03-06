@@ -242,57 +242,63 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
 
     fileNames = new ArrayList<>();
     isRotating = new ArrayList<>();
-    generateRotate = new ArrayList<>();
+
+
+    String[] names = new String[8];
+    int[] rotating = new int[8];
+
+    names[0] = "500.wav";
+    rotating[0] = 0;
+
+    names[1] = "500.wav";
+    rotating[1] = 1;
+
+    names[2] = "1000.wav";
+    rotating[2] = 0;
+
+    names[3] = "1000.wav";
+    rotating[3] = 1;
+
+    names[4] = "1500.wav";
+    rotating[4] = 0;
+
+    names[5] = "1500.wav";
+    rotating[5] = 1;
+
+    names[6] = "2000.wav";
+    rotating[6] = 0;
+
+    names[7] = "2000.wav";
+    rotating[7] = 1;
+
+    ArrayList<Integer> cases = new ArrayList<>();
+
+    int offset=0;
+
+    for(int i=0; i<80; i++) {
+      cases.add(offset);
+
+      offset++;
+
+      if(offset == 8)
+        offset = 0;
+    }
 
     for(int i=0; i<80; i++)
-      isRotating.add(0);
+      isRotating.add(rotating[cases.get(i)]);
 
     trialPos = 0;
     numTrials = 80;
 
-    for(int i=0; i<10; i++)
-      generateRotate.add(0);
-
-    for(int i=10; i<20; i++)
-      generateRotate.add(1);
-
-    for(int i=0; i<20; i++)
-      fileNames.add("500.wav");
-
-    for(int i=20; i<40; i++)
-      fileNames.add("1000.wav");
-
-    for(int i=40; i<60; i++)
-      fileNames.add("1500.wav");
-
-    for(int i=60; i<80; i++)
-      fileNames.add("2000.wav");
-
-    Collections.shuffle(fileNames);
-
-    int ind=0;
-    Collections.shuffle(generateRotate);
     for(int i=0; i<80; i++)
-      if(fileNames.get(i).equals("500.wav"))
-        isRotating.add(i, generateRotate.get(ind++));
+      fileNames.add(names[cases.get(i)]);
 
-    ind=0;
-    Collections.shuffle(generateRotate);
-    for(int i=0; i<80; i++)
-      if(fileNames.get(i).equals("1000.wav"))
-        isRotating.add(i, generateRotate.get(ind++));
-
-    ind=0;
-    Collections.shuffle(generateRotate);
-    for(int i=0; i<80; i++)
-      if(fileNames.get(i).equals("1500.wav"))
-        isRotating.add(i, generateRotate.get(ind++));
-
-    ind=0;
-    Collections.shuffle(generateRotate);
-    for(int i=0; i<80; i++)
-      if(fileNames.get(i).equals("2000.wav"))
-        isRotating.add(i, generateRotate.get(ind++));
+//    System.out.println("size: " + isRotating.size());
+//    String s = "";
+//    for(int i=0; i<80; i++)
+//      s += "generate: " + i + " " + fileNames.get(i) + " " + isRotating.get(i) + ", ";
+//
+//    System.out.println(s);
 
 
   }
@@ -844,6 +850,8 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
     checkGLError("onSurfaceCreated");
     timeElapsed = System.currentTimeMillis();
     timePlaying = System.currentTimeMillis();
+
+
   }
 
   /**
@@ -1040,6 +1048,7 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
   //shows cubes side by side in random order. plays instruction audio
   private void initMenu() {
     //at.pause();
+
 
     startSound("menu.mp3");
 
