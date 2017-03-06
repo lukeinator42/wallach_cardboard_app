@@ -25,6 +25,7 @@ import android.media.MediaPlayer;
 import android.opengl.GLES20;
 import android.opengl.Matrix;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Vibrator;
 import android.util.Log;
 
@@ -38,6 +39,7 @@ import com.google.vr.sdk.base.HeadTransform;
 import com.google.vr.sdk.base.Viewport;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -164,7 +166,7 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
   private float[] forwardVector;
   private float[] prevForwardVector;
 
-  private float prevObjectLocations[] = new float[] {0, 0, 0, 0, 0, 0};
+  private float prevObjectLocations[] = new float[] {0, 0, 0, 0, 0, 0, 0, 0, 0};
 
   private int rotationMode = 0;
 
@@ -197,6 +199,7 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
 
   List<String> fileNames;
   List<Integer> isRotating;
+  List<Integer> generateRotate;
   int trialPos;
   int numTrials;
 
@@ -204,6 +207,7 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
 
   double timePlaying;
   double millisPlaying = 100;
+  double millisDelay = 1000;
   boolean rotatePlaying = true;
 
 
@@ -238,42 +242,73 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
 
     fileNames = new ArrayList<>();
     isRotating = new ArrayList<>();
+    generateRotate = new ArrayList<>();
 
-    trialPos = 0;
-    numTrials = 60;
-
-    for(int i=0; i<30; i++)
+    for(int i=0; i<80; i++)
       isRotating.add(0);
 
-    for(int i=30; i<60; i++)
-      isRotating.add(1);
+    trialPos = 0;
+    numTrials = 80;
+
+    for(int i=0; i<10; i++)
+      generateRotate.add(0);
+
+    for(int i=10; i<20; i++)
+      generateRotate.add(1);
 
     for(int i=0; i<20; i++)
-      fileNames.add("low.wav");
+      fileNames.add("500.wav");
 
     for(int i=20; i<40; i++)
-      fileNames.add("highAndLow.wav");
+      fileNames.add("1000.wav");
 
     for(int i=40; i<60; i++)
-      fileNames.add("high.wav");
+      fileNames.add("1500.wav");
+
+    for(int i=60; i<80; i++)
+      fileNames.add("2000.wav");
 
     Collections.shuffle(fileNames);
-    Collections.shuffle(isRotating);
-  }
 
+    int ind=0;
+    Collections.shuffle(generateRotate);
+    for(int i=0; i<80; i++)
+      if(fileNames.get(i).equals("500.wav"))
+        isRotating.add(i, generateRotate.get(ind++));
+
+    ind=0;
+    Collections.shuffle(generateRotate);
+    for(int i=0; i<80; i++)
+      if(fileNames.get(i).equals("1000.wav"))
+        isRotating.add(i, generateRotate.get(ind++));
+
+    ind=0;
+    Collections.shuffle(generateRotate);
+    for(int i=0; i<80; i++)
+      if(fileNames.get(i).equals("1500.wav"))
+        isRotating.add(i, generateRotate.get(ind++));
+
+    ind=0;
+    Collections.shuffle(generateRotate);
+    for(int i=0; i<80; i++)
+      if(fileNames.get(i).equals("2000.wav"))
+        isRotating.add(i, generateRotate.get(ind++));
+
+
+  }
 
   //this function plays audio if the app isn't in a menu state
   public void playWav(){
 
     while(true) {
-      if(menuState)
+      if(menuState || !rotatePlaying)
         continue;
 
-
+      rotatePlaying = true;
 
 
       int minBufferSize = AudioTrack.getMinBufferSize(48000, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT);
-      int bufferSize = 2048;
+      int bufferSize = 480;
       at = new AudioTrack(AudioManager.STREAM_MUSIC, 48000, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT, minBufferSize, AudioTrack.MODE_STREAM);
 
 
@@ -288,11 +323,16 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
         i = is.read(s0, 0, bufferSize);
         j = is.read(s1, 0, bufferSize);
 
+        boolean ramped = false;
 
-          at.play();
 
+        at.play();
+
+
+        int pos=0;
 
         while ((k = is.read(s2, 0, bufferSize)) > -1) {
+          pos++;
 
           int shift = shiftAmount[angle];
           byte[] ster = new byte[bufferSize * 2];
@@ -322,7 +362,88 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
             ster[l * 2 + 3] = concat[bufferSize+l+shift+1];
           }
 
-          if(rotatePlaying)
+
+          if(!ramped) {
+              ramped = true;
+//
+              ByteBuffer bb = ByteBuffer.allocate(2);
+              bb.order(ByteOrder.LITTLE_ENDIAN);
+//
+              for (int l = 0; l < bufferSize; l += 2) {
+              bb.clear();
+
+              bb.put(ster[l * 2 + 0]);
+              bb.put(ster[l * 2 + 1]);
+
+              short leftVal = bb.getShort(0);
+              leftVal *= ((double) l)/((double)bufferSize);
+
+              bb.clear();
+              bb.putShort(leftVal);
+
+              ster[l * 2 + 0] = bb.get(0);
+              ster[l * 2 + 1] = bb.get(1);
+
+              bb.clear();
+
+              bb.put(ster[l * 2 + 2]);
+              bb.put(ster[l * 2 + 3]);
+
+              short rightVal = bb.getShort(0);
+
+              rightVal *= ((double) l)/((double)bufferSize);
+              bb.clear();
+              bb.putShort(rightVal);
+
+              ster[l * 2 + 2] = bb.get(0);
+              ster[l * 2 + 3] = bb.get(1);
+
+            }
+
+          }
+
+          if(pos == 19) {
+//
+            ByteBuffer bb = ByteBuffer.allocate(2);
+            bb.order(ByteOrder.LITTLE_ENDIAN);
+//
+            for (int l = 0; l < bufferSize; l += 2) {
+              bb.clear();
+
+              bb.put(ster[l * 2 + 0]);
+              bb.put(ster[l * 2 + 1]);
+
+              short leftVal = bb.getShort(0);
+              leftVal *= 1.0-((double) l)/((double)bufferSize);
+
+              bb.clear();
+              bb.putShort(leftVal);
+
+              ster[l * 2 + 0] = bb.get(0);
+              ster[l * 2 + 1] = bb.get(1);
+
+              bb.clear();
+
+              bb.put(ster[l * 2 + 2]);
+              bb.put(ster[l * 2 + 3]);
+
+              short rightVal = bb.getShort(0);
+
+              rightVal *= 1.0-((double) l)/((double)bufferSize);
+              bb.clear();
+              bb.putShort(rightVal);
+
+              ster[l * 2 + 2] = bb.get(0);
+              ster[l * 2 + 3] = bb.get(1);
+
+            }
+
+          }
+
+
+
+
+          if(pos<=19)
             at.write(ster, 0, bufferSize*2);
           else
             at.write(new byte[bufferSize*2], 0, bufferSize*2);
@@ -422,6 +543,56 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
 
     // Initialize 3D audio engine.
     //gvrAudioEngine = new GvrAudioEngine(this, GvrAudioEngine.RenderingMode.STEREO_PANNING);
+    if ( isExternalStorageWritable() ) {
+
+      File appDirectory = new File( Environment.getExternalStorageDirectory() + "/WallachData" );
+      File logDirectory = new File( appDirectory + "/log" );
+      File logFile = new File( logDirectory, "logcat" + System.currentTimeMillis() + ".txt" );
+
+      // create app folder
+      if ( !appDirectory.exists() ) {
+        appDirectory.mkdir();
+      }
+
+      // create log folder
+      if ( !logDirectory.exists() ) {
+        logDirectory.mkdir();
+      }
+
+      // clear the previous logcat and then write the new one to the file
+      try {
+        Process process = Runtime.getRuntime().exec("logcat -c");
+        process = Runtime.getRuntime().exec("logcat -f " + logFile + " System.out:I *:S");
+      } catch ( IOException e ) {
+        e.printStackTrace();
+      }
+
+    } else if ( isExternalStorageReadable() ) {
+      // only readable
+    } else {
+      // not accessible
+    }
+  }
+
+
+
+  /* Checks if external storage is available for read and write */
+  public boolean isExternalStorageWritable() {
+    String state = Environment.getExternalStorageState();
+    if ( Environment.MEDIA_MOUNTED.equals( state ) ) {
+      return true;
+    }
+    return false;
+  }
+
+  /* Checks if external storage is available to at least read */
+  public boolean isExternalStorageReadable() {
+    String state = Environment.getExternalStorageState();
+    if ( Environment.MEDIA_MOUNTED.equals( state ) ||
+            Environment.MEDIA_MOUNTED_READ_ONLY.equals( state ) ) {
+      return true;
+    }
+    return false;
   }
 
   public void initializeGvrView() {
@@ -751,7 +922,7 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
 
     if(System.currentTimeMillis() - timePlaying <= millisPlaying)
       rotatePlaying = true;
-     else if(System.currentTimeMillis() - timePlaying <= 1000)
+     else if(System.currentTimeMillis() - timePlaying <= millisDelay)
       rotatePlaying = false;
      else
       timePlaying = System.currentTimeMillis();
@@ -768,7 +939,7 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
 
 
     //angle offset for static cube
-    double deltaAngle = -0.25;
+    double deltaAngle = 0;
 
 
     System.out.println("head-position: [" + forwardVector[2] + ", " + forwardVector[0] + ", " + forwardVector[1]
@@ -785,8 +956,8 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
   double rot2XY = moving2xPosition[2]*Math.sin(deltaAngle2X) + moving2xPosition[0]*Math.cos(deltaAngle2X);
 
   //update cube moving with head
-  movingPosition[2] = (float) rotX*MAX_MODEL_DISTANCE;
-  movingPosition[0] = (float) rotY*MAX_MODEL_DISTANCE;
+  movingPosition[2] = forwardVector[2]*MAX_MODEL_DISTANCE;
+  movingPosition[0] = forwardVector[0]*MAX_MODEL_DISTANCE;
 
   //update cube moving twice as fast
   moving2xPosition[2] = (float) rot2XX;
@@ -896,12 +1067,15 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
 
 
     staticPosition[2] = (float) xAngles[0]*MAX_MODEL_DISTANCE;
+    staticPosition[1] =  forwardVector[1]+4.0f;
     staticPosition[0] = (float) yAngles[0]*MAX_MODEL_DISTANCE;
 
     movingPosition[2] = (float) xAngles[1]*MAX_MODEL_DISTANCE;
+    movingPosition[1] =  forwardVector[1]+4.0f;
     movingPosition[0] = (float) yAngles[1]*MAX_MODEL_DISTANCE;
 
     moving2xPosition[2] = (float) xAngles[2]*MAX_MODEL_DISTANCE;
+    moving2xPosition[1] =  forwardVector[1]+4.0f;
     moving2xPosition[0] = (float) yAngles[2]*MAX_MODEL_DISTANCE;
 
     updateModelPosition();
@@ -943,7 +1117,7 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
 
 
 
-        if(trialPos<60)
+        if(trialPos<80)
           trialPos++;
         else
         return;
@@ -973,20 +1147,26 @@ public class WallachIllusionActivity extends GvrActivity implements GvrView.Ster
 
   private void savePositions() {
     prevObjectLocations[0] = staticPosition[2];
-    prevObjectLocations[1] = staticPosition[0];
-    prevObjectLocations[2] = movingPosition[2];
-    prevObjectLocations[3] = movingPosition[0];
-    prevObjectLocations[4] = moving2xPosition[2];
-    prevObjectLocations[5] = moving2xPosition[0];
+    prevObjectLocations[1] = staticPosition[1];
+    prevObjectLocations[2] = staticPosition[0];
+    prevObjectLocations[3] = movingPosition[2];
+    prevObjectLocations[4] = movingPosition[1];
+    prevObjectLocations[5] = movingPosition[0];
+    prevObjectLocations[6] = moving2xPosition[2];
+    prevObjectLocations[7] = moving2xPosition[1];
+    prevObjectLocations[8] = moving2xPosition[0];
   }
 
   private void restorePositions() {
     staticPosition[2] = prevObjectLocations[0];
-    staticPosition[0] = prevObjectLocations[1];
-    movingPosition[2] = prevObjectLocations[2];
-    movingPosition[0] = prevObjectLocations[3];
-    moving2xPosition[2] = prevObjectLocations[4];
-    moving2xPosition[0] = prevObjectLocations[5];
+    staticPosition[1] = prevObjectLocations[1];
+    staticPosition[0] = prevObjectLocations[2];
+    movingPosition[2] = prevObjectLocations[3];
+    movingPosition[1] = prevObjectLocations[4];
+    movingPosition[0] = prevObjectLocations[5];
+    moving2xPosition[2] = prevObjectLocations[6];
+    moving2xPosition[1] = prevObjectLocations[7];
+    moving2xPosition[0] = prevObjectLocations[8];
   }
 
   @Override

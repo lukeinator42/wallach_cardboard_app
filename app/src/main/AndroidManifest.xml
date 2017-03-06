@@ -15,6 +15,10 @@ android:versionName="1">
 <!-- Required to detect viewer insertion. -->
 <uses-permission android:name="android.permission.NFC"/>
 
+<uses-permission android:name="android.permission.READ_LOGS" />
+<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+
 <!-- Make accelerometer and gyroscope hard requirements for good head tracking. -->
 <uses-feature android:name="android.hardware.sensor.accelerometer" android:required="true"/>
 <uses-feature android:name="android.hardware.sensor.gyroscope" android:required="true"/>
